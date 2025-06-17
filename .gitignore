@@ -1,0 +1,14 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.env/
+
+# Project-specific data/output
+data/
+logs/
+
+# Operating System files
+.DS_Store
