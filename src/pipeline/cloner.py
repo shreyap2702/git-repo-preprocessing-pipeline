@@ -35,7 +35,7 @@ def clone_repository(github_url, output_dir):
 
 def cleanup_repo(repo_path):
     if os.path.exists(repo_path):
-        shutil.rmtree(repo_path)
+        shutil.rmtree(repo_path)#this after preprocessing is done
         
 def process_repo_clone(url):
     if validate_url(url):
@@ -44,7 +44,7 @@ def process_repo_clone(url):
         return cloned_path
     return None
         
-# --- Add these lines at the very bottom of your cloner.py file ---
+
 if __name__ == "__main__":
     print("--- Starting Repository Cloning Test ---")
 
