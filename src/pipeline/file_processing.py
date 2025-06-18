@@ -16,6 +16,17 @@ def discover_and_filter_files(repo_root_path):
     
     return filtered_files
 
+def read_file_content(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+            return content
+    except FileNotFoundError:
+        print(f"Error: File not found at {file_path}")
+        return None
     
+def file_metadata(file_path):
+    file_dict = {}
     
+    file_name = os.path.basename(file_path)
     
