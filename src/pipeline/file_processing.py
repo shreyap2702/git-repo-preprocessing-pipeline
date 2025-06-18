@@ -25,8 +25,15 @@ def read_file_content(file_path):
         print(f"Error: File not found at {file_path}")
         return None
     
-def file_metadata(file_path):
+def extract_file_metadata(file_path):
     file_dict = {}
     
     file_name = os.path.basename(file_path)
+    file_type = os.path.splitext(file_path)[1]
+    file_size = os.path.getsize(file_path)
     
+    file_dict["file_name"] = file_name
+    file_dict["file_type"] = file_type
+    file_dict["file_size"] = file_size
+    
+    return file_dict
