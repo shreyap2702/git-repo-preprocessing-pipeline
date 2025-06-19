@@ -37,3 +37,17 @@ def extract_file_metadata(file_path):
     file_dict["file_size"] = file_size
     
     return file_dict
+
+def detect_programming_language(file_content, file_extension):
+    
+    file_map = {".py" : "python",
+                ".js" : "javascript",
+                ".ts" : "typescript",
+                ".jsx" : "javascript xml",
+                ".tsx" : "typescript.xml"}
+    
+    language = file_map.get(file_extension, "Unknown")
+    
+    return language
+
+
