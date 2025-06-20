@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import os
@@ -103,37 +104,43 @@ def _resolve_js_ts_jsx_tsx_path(base_path, module_path, all_repo_files):
             return potential_path_exact
     
     return None
-    
-    
-            
-    
-    
-    
 
 
 def find_dependencies(file_content, file_path, all_repo_files):
     dependencies = []
+    all_repo_files_set = set(all_repo_files) 
     
     file_extension = os.path.splitext(file_path)[1].lower()
     
-    current_language = "python"
+    language_category = 'other'
     
-    if current_language == "python":
-        lines = file_content.splitlines()
-        for line in lines:
-            stripped_line = line.strip() 
+    if file_extension == '.py':
+        language_category = 'python'
+    if file_extension in ['.js','.ts','.jsx','.tsx']:
+        language_category = 'js_ts_jsx_tsx'
+    
+    current_dir = os.path.dirname(file_path)
+    
+    if language_category == "python":
+        for line in file_content:
+            stripped_line = line.strip()
+            module = None
             
-            if stripped_line.startswith("import "):
-                parts = stripped_line.split(" ")
-                if len(parts) > 1:
-                    module_name = parts[1].split('.')[0] 
-                    dependencies.append(module_name)
+            if line.startswith("import"):
+                parts = stripped_line[len("import "):].split(' ', 1)[0].split(',', 1)[0]
+                module_name = parts.split('.')[0]
+            
+            elif line.startswith("from"):
+                parts = stripped_line[len("from "):].split(' ', 1)
+                if len(parts)>0:
+                    module_name = parts[0].split('.')[0]
                     
-            elif stripped_line.startswith("from "):
-                parts = stripped_line.split(" ")
-                if len(parts) > 1:
-                    module_name = parts[1].split(".")[0]
-                    dependencies.append(module_name)
+            if module_name:
+                resolved_path = _resolve_python_import_path(current_dir, module_name, all_repo_files_set)
+                if resolved_path and resolved_path!= file_path:
+                    dependencies.append(resolved_path)
                     
-    return dependencies
+                      
+        
+    
                 
