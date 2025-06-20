@@ -67,7 +67,7 @@ def _resolve_python_import_path(base_path, module_name, all_repo_files):
         module_path = clean_module.replace('.', os.sep)
         
     else: # Direct/Absolute import
-        base = base_path # For simplicity, start searching from current file's base
+        base = base_path 
         module_path = module_name.replace('.', os.sep)
         
     candidates = [
@@ -81,6 +81,30 @@ def _resolve_python_import_path(base_path, module_name, all_repo_files):
             return normalized
     
     return None
+
+def _resolve_js_ts_jsx_tsx_path(base_path, module_path, all_repo_files):
+    
+    all_repo_files_set = set(all_repo_files) #making set of files
+    
+    #possible extensions for js modules
+    possible_extensions = ['.js', '.ts','.tsx', '.jsx', '/index.js', '/index.ts', '/index.jsx']
+    
+    path_without_quotes = module_path.strip("'\"")
+    
+    if path_without_quotes.startswith(('./', '../')):
+        
+        for ext in possible_extensions:
+            normalized = os.path.normpath(os.path.join(base_path, path_without_quotes + ext))
+            if normalized in all_repo_files_set:
+                return normalized
+        
+        potential_path_exact = os.path.normpath(os.path.join(base_path, path_without_quotes))
+        if potential_path_exact in all_repo_files_set:
+            return potential_path_exact
+    
+    return None
+    
+    
             
     
     
