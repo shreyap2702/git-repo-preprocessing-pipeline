@@ -50,4 +50,66 @@ def detect_programming_language(file_content, file_extension):
     
     return language
 
+def _resolve_python_import_path(base_path, module_name, all_repo_files):
+    all_repo_files_set = set(all_repo_files) 
 
+    if module_name.startswith('.'):
+        dots = len(module_name) - len(module_name.lstrip('.'))
+        clean_module = module_name[dots:]
+        
+        path_parts = base_path.split(os.sep)
+        
+        for _ in range(dots-1):
+            if path_parts:
+                path_parts.pop()
+                
+        base = os.sep.join(path_parts)
+        module_path = clean_module.replace('.', os.sep)
+        
+    else: # Direct/Absolute import
+        base = base_path # For simplicity, start searching from current file's base
+        module_path = module_name.replace('.', os.sep)
+        
+    candidates = [
+        os.path.join(base, module_path + '.py'),
+        os.path.join(base, module_path, '__init__.py') 
+    ]
+    
+    for path in candidates:
+        normalized = os.path.normpath(path)
+        if normalized in all_repo_files_set: # Use the set for lookup
+            return normalized
+    
+    return None
+            
+    
+    
+    
+
+
+def find_dependencies(file_content, file_path, all_repo_files):
+    dependencies = []
+    
+    file_extension = os.path.splitext(file_path)[1].lower()
+    
+    current_language = "python"
+    
+    if current_language == "python":
+        lines = file_content.splitlines()
+        for line in lines:
+            stripped_line = line.strip() 
+            
+            if stripped_line.startswith("import "):
+                parts = stripped_line.split(" ")
+                if len(parts) > 1:
+                    module_name = parts[1].split('.')[0] 
+                    dependencies.append(module_name)
+                    
+            elif stripped_line.startswith("from "):
+                parts = stripped_line.split(" ")
+                if len(parts) > 1:
+                    module_name = parts[1].split(".")[0]
+                    dependencies.append(module_name)
+                    
+    return dependencies
+                
