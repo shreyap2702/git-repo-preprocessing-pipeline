@@ -45,7 +45,7 @@ def detect_programming_language(file_content, file_extension):
                 ".js" : "javascript",
                 ".ts" : "typescript",
                 ".jsx" : "javascript xml",
-                ".tsx" : "typescript.xml"}
+                ".tsx" : "typescript xml"}
     
     language = file_map.get(file_extension, "Unknown")
     
@@ -122,15 +122,15 @@ def find_dependencies(file_content, file_path, all_repo_files):
     current_dir = os.path.dirname(file_path)
     
     if language_category == "python":
-        for line in file_content:
+        for line in file_content.splitlines():
             stripped_line = line.strip()
-            module = None
+            module_name = None
             
-            if line.startswith("import"):
+            if stripped_line.startswith("import"):
                 parts = stripped_line[len("import "):].split(' ', 1)[0].split(',', 1)[0]
                 module_name = parts.split('.')[0]
             
-            elif line.startswith("from"):
+            elif stripped_line.startswith("from"):
                 parts = stripped_line[len("from "):].split(' ', 1)
                 if len(parts)>0:
                     module_name = parts[0].split('.')[0]
@@ -142,14 +142,15 @@ def find_dependencies(file_content, file_path, all_repo_files):
                     
     elif language_category == "js_ts_jsx_tsx":
         
-        for line in file_content:
+        for line in file_content.splitlines():
             stripped_line = line.strip()
+            module_path_str = None
             
             if "import" in stripped_line and "from" in stripped_line:
                 from_idx = stripped_line.find("from")
                 
                 if from_idx != -1:
-                    import_path_part = stripped_line[from_idx + len(" from "):].strip()
+                    import_path_part = stripped_line[from_idx + len("from "):].strip()
                     if import_path_part.startswith(('"', "'")):
                         closing_quote_idx = import_path_part.find(import_path_part[0], 1)
                         if closing_quote_idx != -1:
@@ -158,7 +159,7 @@ def find_dependencies(file_content, file_path, all_repo_files):
             elif stripped_line.startswith("import ") and (stripped_line.endswith('"') or stripped_line.endswith("'")):
                 first_quote_idx = max(stripped_line.find("'"), stripped_line.find('"'))
                 if first_quote_idx != -1:
-                    close_quote_idx = stripped_line.rfind(stripped_line[first_quote_idx])
+                    closing_quote_idx = stripped_line.rfind(stripped_line[first_quote_idx])
                     if closing_quote_idx != first_quote_idx:
                         module_path_str = stripped_line[first_quote_idx+1:closing_quote_idx]
             
@@ -192,11 +193,11 @@ def extract_function_definitions(file_content, language):
                 
             if stripped_line.startswith("def ") and "(" in stripped_line and ":" in stripped_line:
                 func_name_start_idx = stripped_line.find("def ") + len("def ")
-                func_name_end_index = stripped_line.find("(", func_name_start_idx)
+                func_name_end_idx = stripped_line.find("(", func_name_start_idx)
                     
                 if func_name_start_idx != -1 and func_name_end_idx != -1:
                         
-                    func_name = stripped_line[func_name_start_idx:func_name_end_index].strip()
+                    func_name = stripped_line[func_name_start_idx:func_name_end_idx].strip()
                         
                     if func_name and " " not in func_name:
                         functions.append(func_name)
@@ -217,8 +218,3 @@ def extract_function_definitions(file_content, language):
                             functions.append(func_name)
                         
     return list(set(functions))
-                    
-                      
-        
-    
-                
