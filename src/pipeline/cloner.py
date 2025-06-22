@@ -1,12 +1,6 @@
 import os
-from pathlib import Path
 import subprocess
 import shutil
-import tempfile 
-
-url = input("Enter a URL: ")
-
-
 
 def validate_url(url):
     if "https://github.com/" in url:
@@ -35,7 +29,7 @@ def clone_repository(github_url, output_dir):
 
 def cleanup_repo(repo_path):
     if os.path.exists(repo_path):
-        shutil.rmtree(repo_path)#this after preprocessing is done
+        shutil.rmtree(repo_path)
         
 def process_repo_clone(url):
     if validate_url(url):
@@ -43,24 +37,3 @@ def process_repo_clone(url):
         cloned_path = clone_repository(url, target_clone_base_dir)
         return cloned_path
     return None
-        
-
-if __name__ == "__main__":
-    print("--- Starting Repository Cloning Test ---")
-
-    cloned_repo_path = process_repo_clone(url)
-
-    if cloned_repo_path:
-        print(f"\nSUCCESS: Repository cloned to: {cloned_repo_path}")
-        print(f"Please check the folder: {cloned_repo_path}")
-        
-    else:
-        print(f"\nFAILURE: Could not clone repository for URL: {url}")
-    
-    
-
-
-
-    
-    
-
