@@ -1,8 +1,5 @@
 import os
-import re
-from pathlib import Path
-
-import os
+import json
 
 def discover_and_filter_files(repo_root_path):
     filtered_files = []
@@ -218,3 +215,54 @@ def extract_function_definitions(file_content, language):
                             functions.append(func_name)
                         
     return list(set(functions))
+
+def process_repository_for_json(repo_root_path):
+    all_repo_files = discover_and_filter_files(repo_root_path)
+    processed_files_data = []
+    
+    all_repo_files_set = set(all_repo_files)
+    
+    file_content_cache = {}
+    file_defined_functions_cache = {}
+    
+    for file_path in all_repo_files:
+        content = read_file_content(file_path)
+        if content is None:
+            continue
+        
+        file_content_cache[file_path] = content
+        
+        metadata = extract_file_metadata(file_path)
+        language = detect_programming_language(content, metadata["file_type"])
+        defined_functions = extract_function_definitions(content, language) 
+        file_defined_functions_cache[file_path] = defined_functions
+        
+        processed_files_data.append({
+            "file_path": file_path,
+            "metadata": metadata,
+            "language": language,
+            "content": content,
+            "functions": defined_functions, 
+            "dependencies": [], 
+            "used_functions_from_dependencies_hints": []
+        })
+        
+    for file_entry in processed_files_data:
+        file_path = file_entry["file_path"]
+        content = file_entry["content"] 
+        
+        file_entry["dependencies"] = find_dependencies(content, file_path, all_repo_files_set)
+
+        used_func_hints = []
+        for dep_path in file_entry["dependencies"]:
+            if dep_path in file_defined_functions_cache:
+                dep_defined_funcs = file_defined_functions_cache[dep_path]
+                for func_name in dep_defined_funcs:
+                    if func_name in content: 
+                        used_func_hints.append(f"{os.path.basename(dep_path)}:{func_name}")
+        
+        file_entry["used_functions_from_dependencies_hints"] = used_func_hints
+
+    return json.dumps(processed_files_data, indent=2)
+                
+            
