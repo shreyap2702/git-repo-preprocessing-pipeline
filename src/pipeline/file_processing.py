@@ -140,6 +140,50 @@ def find_dependencies(file_content, file_path, all_repo_files):
                 if resolved_path and resolved_path!= file_path:
                     dependencies.append(resolved_path)
                     
+    elif language_category == "js_ts_jsx_tsx":
+        
+        for line in file_content:
+            stripped_line = line.strip()
+            
+            if "import" in stripped_line and "from" in stripped_line:
+                from_idx = stripped_line.find("from")
+                
+                if from_idx != -1:
+                    import_path_part = stripped_line[from_idx + len(" from "):].strip()
+                    if import_path_part.startswith(('"', "'")):
+                        closing_quote_idx = import_path_part.find(import_path_part[0], 1)
+                        if closing_quote_idx != -1:
+                            module_path_str = import_path_part[1:closing_quote_idx]
+                
+            elif stripped_line.startswith("import ") and (stripped_line.endswith('"') or stripped_line.endswith("'")):
+                first_quote_idx = max(stripped_line.find("'"), stripped_line.find('"'))
+                if first_quote_idx != -1:
+                    close_quote_idx = stripped_line.rfind(stripped_line[first_quote_idx])
+                    if closing_quote_idx != first_quote_idx:
+                        module_path_str = stripped_line[first_quote_idx+1:closing_quote_idx]
+            
+            elif "require(" in stripped_line:
+                require_idx = stripped_line.find("require(")
+                if require_idx != -1:
+                    open_paren_idx = require_idx+  len("require(")
+                    open_quote_idx = stripped_line.find('"', open_paren_idx)
+                    if open_quote_idx == -1:
+                        open_quote_idx = stripped_line.find("'", open_paren_idx)
+                        
+                    if open_quote_idx != -1:
+                        closing_quote_idx = stripped_line.find(stripped_line[open_quote_idx], open_quote_idx + 1)
+                        if closing_quote_idx != -1:
+                            module_path_str = stripped_line[open_quote_idx+1:closing_quote_idx]
+                            
+            if module_path_str:
+                js_path_resolve = _resolve_js_ts_jsx_tsx_path(current_dir, module_path_str, all_repo_files_set)
+                if js_path_resolve and js_path_resolve != file_path:
+                        dependencies.append(js_path_resolve)
+    
+    return list(dependencies)
+                    
+        
+                    
                       
         
     
