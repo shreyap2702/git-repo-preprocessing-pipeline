@@ -241,7 +241,7 @@ def process_repository_for_json(repo_root_path):
             "file_path": file_path,
             "metadata": metadata,
             "language": language,
-            "content": content,
+            #"content": content,
             "functions": defined_functions, 
             "dependencies": [], 
             "used_functions_from_dependencies_hints": []
@@ -249,7 +249,7 @@ def process_repository_for_json(repo_root_path):
         
     for file_entry in processed_files_data:
         file_path = file_entry["file_path"]
-        content = file_entry["content"] 
+        content = file_content_cache.get(file_path, "") 
         
         file_entry["dependencies"] = find_dependencies(content, file_path, all_repo_files_set)
 
