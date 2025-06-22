@@ -182,7 +182,27 @@ def find_dependencies(file_content, file_path, all_repo_files):
     
     return list(dependencies)
                     
+    def extract_function_definitions(file_contents, language):
+        functions = []
+        lines = file_content.splitlines()
         
+        if language == python:
+            for line in lines:
+                stripped_line = line.strip()
+                
+                if stripped_line.startswith("def ") and "(" in stripped_line and ":" in stripped_line:
+                    func_name_start_idx = stripped_line.find("def ") + len("def ")
+                    func_name_end_index = stripped_line.find("(", func_name_start_index)
+                    
+                    if func_name_start_idx != -1 and func_name_end_idx != -1:
+                        
+                        func_name = stripped_line[func_name_start_idx:func_name_end_index].strip()
+                        
+                        if func_name and " " not in func_name:
+                            functions.append(fun_name)
+                            
+        elif language in ["javascript", "typescript", "javascript xml", "typescript xml"]:
+            pass
                     
                       
         
