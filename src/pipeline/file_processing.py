@@ -183,39 +183,84 @@ def find_external_imports(file_content, file_path, all_repo_files):
     external_deps = set()
     all_repo_files_set = set(all_repo_files)
     curr_dir = os.path.dirname(file_path)
-    
     file_extension = os.path.splitext(file_path)[1].lower()
-    
+
     if file_extension == ".py":
-        for line in file_content:
+        for line in file_content.splitlines():
             stripped = line.strip()
-            
             if not stripped or stripped.startswith("#"):
                 continue
-            
-            module_name = None
-            
+
+            # Handle: import x, y
             if stripped.startswith("import "):
                 import_part = stripped[7:].strip()
-                module_name = import_part.split(" as ")[0].split(" , ").strip()
-                
+                module_names = [m.strip() for m in import_part.split(",")]
+                for module_name in module_names:
+                    if "#" in module_name:
+                        module_name = module_name.split("#")[0].strip()
+                    if not module_name.startswith("."):
+                        possible_path = os.path.join(curr_dir, *module_name.split(".")) + ".py"
+                        normalized = os.path.normpath(possible_path)
+                        if normalized not in all_repo_files_set:
+                            external_deps.add(module_name)
+
+            # Handle: from x import y
             elif stripped.startswith("from "):
                 from_part = stripped[5:].strip()
                 if "import" in from_part:
                     module_name = from_part.split(" import ")[0].strip()
-                    
-            if module_name and "#" in module_name:
-                module_name = module_name.split("#")[0].strip()
-                
-            if module_name and not module_name.startswith("."):
-                possible_path = os.path.join(curr_dir, *module_name.split(".")) + ".py"
-                normalized = os.path.normpath(possible_path)
-                if normalized not in all_repo_files_set:
-                    external_deps.add(module_name)
-                    
-    
+                    if "#" in module_name:
+                        module_name = module_name.split("#")[0].strip()
+                    if not module_name.startswith("."):
+                        possible_path = os.path.join(curr_dir, *module_name.split(".")) + ".py"
+                        normalized = os.path.normpath(possible_path)
+                        if normalized not in all_repo_files_set:
+                            external_deps.add(module_name)
 
-            
+    elif file_extension in [".js", ".ts", ".jsx", ".tsx"]:
+        for line in file_content.splitlines():
+            stripped = line.strip()
+            module_path = None
+            if not stripped or stripped.startswith("//") or stripped.startswith("/*"):
+                continue
+
+            # Handle: import something from "lib"
+            if "import" in stripped and "from" in stripped:
+                from_idx = stripped.find("from")
+                if from_idx != -1:
+                    import_path_part = stripped[from_idx + 4:].strip()
+                    if import_path_part.startswith(("'", '"')):
+                        quote_char = import_path_part[0]
+                        end_quote_idx = import_path_part.find(quote_char, 1)
+                        if end_quote_idx != -1:
+                            module_path = import_path_part[1:end_quote_idx]
+
+            # Handle: import "lib"
+            elif stripped.startswith("import "):
+                import_path = stripped[7:].strip()
+                if import_path.startswith(("'", '"')):
+                    quote_char = import_path[0]
+                    end_quote_idx = import_path.find(quote_char, 1)
+                    if end_quote_idx != -1:
+                        module_path = import_path[1:end_quote_idx]
+
+            # Handle: const x = require("lib")
+            elif "require(" in stripped:
+                start_idx = stripped.find("require(") + len("require(")
+                after = stripped[start_idx:].strip()
+                if after.startswith(("'", '"')):
+                    quote_char = after[0]
+                    end_quote_idx = after.find(quote_char, 1)
+                    if end_quote_idx != -1:
+                        module_path = after[1:end_quote_idx]
+
+            # Final check: skip relative paths
+            if module_path and not module_path.startswith((".", "/", "../")):
+                external_deps.add(module_path)
+
+    return list(external_deps)
+
+    
         
 
 
@@ -230,12 +275,14 @@ def process_repository_for_json(repo_root_path):
         content = read_file_content(file_path)
         if content is None:
             continue
+
         abs_path = os.path.abspath(file_path)
         file_content_cache[abs_path] = content
+
         metadata = extract_file_metadata(abs_path)
         language = detect_programming_language(content, metadata["file_type"])
         defined_functions = extract_function_definitions(content, language)
-        file_defined_functions_cache[abs_path] = defined_functions
+        file_defined_functions_cache[abs_path] = defined_functions or []
 
         processed_files_data.append({
             "file_path": os.path.relpath(abs_path, repo_root_path),
@@ -243,13 +290,17 @@ def process_repository_for_json(repo_root_path):
             "language": language,
             "functions": defined_functions,
             "dependencies": [],
-            "used_functions_from_dependencies_hints": []
+            "used_functions_from_dependencies_hints": [],
+            "external_libraries": find_external_imports(content, file_path, all_repo_files)
+
         })
 
     for file_entry in processed_files_data:
         abs_file_path = os.path.abspath(os.path.join(repo_root_path, file_entry["file_path"]))
         content = file_content_cache.get(abs_file_path, "")
-        abs_dependencies = find_dependencies(content, abs_file_path, all_repo_files_set)
+
+        # Ensure dependencies is always a list
+        abs_dependencies = find_dependencies(content, abs_file_path, all_repo_files_set) or []
 
         file_entry["dependencies"] = [
             os.path.relpath(dep, repo_root_path) for dep in abs_dependencies
@@ -257,10 +308,9 @@ def process_repository_for_json(repo_root_path):
 
         used_hints = []
         for dep_path in abs_dependencies:
-            if dep_path in file_defined_functions_cache:
-                for func_name in file_defined_functions_cache[dep_path]:
-                    if func_name in content:
-                        used_hints.append(f"{os.path.basename(dep_path)}:{func_name}")
+            for func_name in file_defined_functions_cache.get(dep_path, []):
+                if func_name in content:
+                    used_hints.append(f"{os.path.basename(dep_path)}:{func_name}")
 
         file_entry["used_functions_from_dependencies_hints"] = used_hints
 
