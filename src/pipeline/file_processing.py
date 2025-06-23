@@ -179,6 +179,46 @@ def extract_function_definitions(file_content, language):
 
     return list(set(functions))
 
+def find_external_imports(file_content, file_path, all_repo_files):
+    external_deps = set()
+    all_repo_files_set = set(all_repo_files)
+    curr_dir = os.path.dirname(file_path)
+    
+    file_extension = os.path.splitext(file_path)[1].lower()
+    
+    if file_extension == ".py":
+        for line in file_content:
+            stripped = line.strip()
+            
+            if not stripped or stripped.startswith("#"):
+                continue
+            
+            module_name = None
+            
+            if stripped.startswith("import "):
+                import_part = stripped[7:].strip()
+                module_name = import_part.split(" as ")[0].split(" , ").strip()
+                
+            elif stripped.startswith("from "):
+                from_part = stripped[5:].strip()
+                if "import" in from_part:
+                    module_name = from_part.split(" import ")[0].strip()
+                    
+            if module_name and "#" in module_name:
+                module_name = module_name.split("#")[0].strip()
+                
+            if module_name and not module_name.startswith("."):
+                possible_path = os.path.join(curr_dir, *module_name.split(".")) + ".py"
+                normalized = os.path.normpath(possible_path)
+                if normalized not in all_repo_files_set:
+                    external_deps.add(module_name)
+                    
+    
+
+            
+        
+
+
 def process_repository_for_json(repo_root_path):
     all_repo_files = [os.path.abspath(p) for p in discover_and_filter_files(repo_root_path)]
     processed_files_data = []
