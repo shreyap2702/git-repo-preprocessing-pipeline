@@ -47,60 +47,86 @@ def detect_programming_language(file_content, file_extension):
     language = file_map.get(file_extension, "Unknown")
     
     return language
-
 def _resolve_python_import_path(base_path, module_name, all_repo_files):
+    """Resolve Python import to actual file path"""
     all_repo_files_set = set(all_repo_files) 
 
     if module_name.startswith('.'):
+       
         dots = len(module_name) - len(module_name.lstrip('.'))
         clean_module = module_name[dots:]
         
         path_parts = base_path.split(os.sep)
         
-        for _ in range(dots-1):
+       
+        for _ in range(dots if dots > 1 else 1):
             if path_parts:
                 path_parts.pop()
                 
-        base = os.sep.join(path_parts)
-        module_path = clean_module.replace('.', os.sep)
+        base = os.sep.join(path_parts) if path_parts else base_path
+        module_path = clean_module.replace('.', os.sep) if clean_module else ''
         
-    else: # Direct/Absolute import
+    else:
+        # Absolute import
         base = base_path 
         module_path = module_name.replace('.', os.sep)
         
-    candidates = [
-        os.path.join(base, module_path + '.py'),
-        os.path.join(base, module_path, '__init__.py') 
-    ]
+    
+    candidates = []
+    
+    if module_path:
+        candidates.extend([
+            os.path.join(base, module_path + '.py'),
+            os.path.join(base, module_path, '__init__.py'),
+        ])
+    
+   
+    if not module_name.startswith('.'):
+        current_base = base
+        while current_base and current_base != os.path.dirname(current_base):
+            candidates.extend([
+                os.path.join(current_base, module_path + '.py'),
+                os.path.join(current_base, module_path, '__init__.py'),
+            ])
+            current_base = os.path.dirname(current_base)
     
     for path in candidates:
         normalized = os.path.normpath(path)
-        if normalized in all_repo_files_set: # Use the set for lookup
+        if normalized in all_repo_files_set:
             return normalized
     
     return None
 
 def _resolve_js_ts_jsx_tsx_path(base_path, module_path, all_repo_files):
+    """Resolve JS/TS import to actual file path"""
+    all_repo_files_set = set(all_repo_files)
     
-    all_repo_files_set = set(all_repo_files) #making set of files
-    
-    #possible extensions for js modules
-    possible_extensions = ['.js', '.ts','.tsx', '.jsx', '/index.js', '/index.ts', '/index.jsx']
+    # Possible extensions for js modules
+    possible_extensions = ['.js', '.ts', '.tsx', '.jsx']
+    index_files = ['/index.js', '/index.ts', '/index.jsx', '/index.tsx']
     
     path_without_quotes = module_path.strip("'\"")
     
-    if path_without_quotes.startswith(('./', '../')):
+    if path_without_quotes.startswith(('./', '../', '/')):
+        # Relative or absolute path
+        base_candidate = os.path.join(base_path, path_without_quotes)
         
+       
+        normalized = os.path.normpath(base_candidate)
+        if normalized in all_repo_files_set:
+            return normalized
+       
         for ext in possible_extensions:
-            normalized = os.path.normpath(os.path.join(base_path, path_without_quotes + ext))
+            normalized = os.path.normpath(base_candidate + ext)
             if normalized in all_repo_files_set:
                 return normalized
         
-        potential_path_exact = os.path.normpath(os.path.join(base_path, path_without_quotes))
-        if potential_path_exact in all_repo_files_set:
-            return potential_path_exact
-    
+        for index_file in index_files:
+            normalized = os.path.normpath(base_candidate + index_file)
+            if normalized in all_repo_files_set:
+                return normalized
     return None
+    
 
 
 def find_dependencies(file_content, file_path, all_repo_files):
