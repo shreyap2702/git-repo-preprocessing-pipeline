@@ -12,3 +12,5 @@ logs/
 
 # Operating System files
 .DS_Store
+
+output/
