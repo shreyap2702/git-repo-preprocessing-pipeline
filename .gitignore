@@ -2,9 +2,12 @@
 __pycache__/
 *.pyc
 
+
 # Virtual environments
+.venv/
 venv/
 .env/
+
 
 # Project-specific data/output
 data/
