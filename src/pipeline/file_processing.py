@@ -146,38 +146,126 @@ def find_dependencies(file_content, file_path, all_repo_files):
 
     return list(set(dependencies))
 
-def extract_function_definitions(file_content, language):
+def extract_function_definitions_with_code(file_content, language):
+    """
+    Extract function names along with their complete code structure.
+    Returns a list of dictionaries with 'name' and 'code' keys.
+    """
     functions = []
     lines = file_content.splitlines()
 
     if language == "python":
-        for line in lines:
+        i = 0
+        while i < len(lines):
+            line = lines[i]
             stripped = line.strip()
+            
             if stripped.startswith("def ") and "(" in stripped and ":" in stripped:
+                # Extract function name
                 name_start = stripped.find("def ") + len("def ")
                 name_end = stripped.find("(", name_start)
                 func_name = stripped[name_start:name_end].strip()
+                
                 if func_name and " " not in func_name:
-                    functions.append(func_name)
+                    # Get indentation level
+                    indent_level = len(line) - len(line.lstrip())
+                    
+                    # Collect function code
+                    func_lines = [line]
+                    i += 1
+                    
+                    # Continue collecting lines that are part of the function
+                    while i < len(lines):
+                        current_line = lines[i]
+                        current_stripped = current_line.strip()
+                        
+                        # Stop if we hit a line with same or less indentation (unless it's empty or comment)
+                        if current_stripped and not current_stripped.startswith('#'):
+                            current_indent = len(current_line) - len(current_line.lstrip())
+                            if current_indent <= indent_level:
+                                break
+                        
+                        func_lines.append(current_line)
+                        i += 1
+                    
+                    functions.append({
+                        "name": func_name,
+                        "code": "\n".join(func_lines)
+                    })
+                    continue
+            i += 1
 
     elif language in ["javascript", "typescript", "javascript xml", "typescript xml"]:
-        patterns = [
-            r'function\s+([a-zA-Z0-9_]+)\s*\(',
-            r'const\s+([a-zA-Z0-9_]+)\s*=\s*function\s*\(',
-            r'const\s+([a-zA-Z0-9_]+)\s*=\s*\(?.*?\)?\s*=>',
-            r'let\s+([a-zA-Z0-9_]+)\s*=\s*function\s*\(',
-            r'let\s+([a-zA-Z0-9_]+)\s*=\s*\(?.*?\)?\s*=>',
-            r'export\s+function\s+([a-zA-Z0-9_]+)\s*\(',
-            r'export\s+const\s+([a-zA-Z0-9_]+)\s*=\s*\(?.*?\)?\s*=>'
-        ]
-        for line in lines:
+        i = 0
+        while i < len(lines):
+            line = lines[i]
             stripped = line.strip()
-            for pattern in patterns:
+            
+            # Patterns for different function declarations
+            patterns = [
+                (r'function\s+([a-zA-Z0-9_]+)\s*\(', 'function'),
+                (r'const\s+([a-zA-Z0-9_]+)\s*=\s*function\s*\(', 'const_function'),
+                (r'const\s+([a-zA-Z0-9_]+)\s*=\s*\(?.*?\)?\s*=>', 'arrow'),
+                (r'let\s+([a-zA-Z0-9_]+)\s*=\s*function\s*\(', 'let_function'),
+                (r'let\s+([a-zA-Z0-9_]+)\s*=\s*\(?.*?\)?\s*=>', 'let_arrow'),
+                (r'export\s+function\s+([a-zA-Z0-9_]+)\s*\(', 'export_function'),
+                (r'export\s+const\s+([a-zA-Z0-9_]+)\s*=\s*\(?.*?\)?\s*=>', 'export_arrow')
+            ]
+            
+            for pattern, func_type in patterns:
                 match = re.search(pattern, stripped)
                 if match:
-                    functions.append(match.group(1))
+                    func_name = match.group(1)
+                    func_lines = [line]
+                    i += 1
+                    
+                    # Track braces to find function end
+                    brace_count = stripped.count('{') - stripped.count('}')
+                    
+                    # For arrow functions, check if it's single line
+                    if 'arrow' in func_type and '=>' in stripped:
+                        if '{' not in stripped:
+                            # Single line arrow function
+                            functions.append({
+                                "name": func_name,
+                                "code": line
+                            })
+                            break
+                    
+                    # Multi-line function - collect until braces match
+                    while i < len(lines) and brace_count > 0:
+                        current_line = lines[i]
+                        func_lines.append(current_line)
+                        brace_count += current_line.count('{') - current_line.count('}')
+                        i += 1
+                    
+                    if func_lines:
+                        functions.append({
+                            "name": func_name,
+                            "code": "\n".join(func_lines)
+                        })
+                    break
+            else:
+                i += 1
+                continue
+            break
 
-    return list(set(functions))
+    # Remove duplicates based on function name
+    seen = set()
+    unique_functions = []
+    for func in functions:
+        if func["name"] not in seen:
+            seen.add(func["name"])
+            unique_functions.append(func)
+    
+    return unique_functions
+
+def extract_function_definitions(file_content, language):
+    """
+    Legacy function that returns just function names for backward compatibility.
+    """
+    functions_with_code = extract_function_definitions_with_code(file_content, language)
+    return [func["name"] for func in functions_with_code]
 
 def find_external_imports(file_content, file_path, all_repo_files):
     external_deps = set()
@@ -260,10 +348,6 @@ def find_external_imports(file_content, file_path, all_repo_files):
 
     return list(external_deps)
 
-    
-        
-
-
 def process_repository_for_json(repo_root_path):
     all_repo_files = [os.path.abspath(p) for p in discover_and_filter_files(repo_root_path)]
     processed_files_data = []
@@ -281,18 +365,20 @@ def process_repository_for_json(repo_root_path):
 
         metadata = extract_file_metadata(abs_path)
         language = detect_programming_language(content, metadata["file_type"])
-        defined_functions = extract_function_definitions(content, language)
+        
+        # Extract functions with their code
+        functions_with_code = extract_function_definitions_with_code(content, language)
+        defined_functions = [func["name"] for func in functions_with_code]
         file_defined_functions_cache[abs_path] = defined_functions or []
 
         processed_files_data.append({
             "file_path": os.path.relpath(abs_path, repo_root_path),
             "metadata": metadata,
             "language": language,
-            "functions": defined_functions,
+            "functions": functions_with_code,  # Now includes both name and code
             "dependencies": [],
             "used_functions_from_dependencies_hints": [],
             "external_libraries": find_external_imports(content, file_path, all_repo_files)
-
         })
 
     for file_entry in processed_files_data:

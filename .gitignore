@@ -17,3 +17,6 @@ logs/
 .DS_Store
 
 output/
+
+myenv/
+analysis_results/
