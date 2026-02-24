@@ -2,7 +2,7 @@
 
 This tool automates the process of cloning GitHub repositories and performing structural analysis to extract semantic data for code visualization and exploration.
 
-## Pipeline Workflow
+## Workflow
 
 1.  **Ingestion**: Clones the target GitHub repository into a temporary or local workspace.
 2.  **Structural Extraction**: Programmatically traverses the file tree to identify and extract:
